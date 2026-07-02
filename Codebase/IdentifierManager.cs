@@ -2,6 +2,7 @@ using Comfort.Common;
 using EFT;
 using EFT.CameraControl;
 using System.Collections.Generic;
+using BepInEx.Configuration;
 using UnityEngine;
 
 namespace AutoIFF.Codebase
@@ -27,6 +28,8 @@ namespace AutoIFF.Codebase
         private GUIStyle labelStyle;
         private string displayText = "";
         private Color displayColor = Color.white;
+
+        private bool hotkeyActive;
 
         private float traitorAlertUntil;
         private int traitorAlertCount;
@@ -101,6 +104,13 @@ namespace AutoIFF.Codebase
             if (isRaidOver || player == null || playerCamera == null) return;
             if (player.HandsController == null) { ResetIdentification(); return; }
 
+            if (Plugin.ActivationMode.Value == EActivationMode.Hotkey)
+            {
+                if (Plugin.ActivationHotkey.Value.IsDown())
+                    hotkeyActive = !hotkeyActive;
+                if (!hotkeyActive) { ResetIdentification(); return; }
+            }
+
             CleanupMemoryIfNeeded();
 
             if (!player.HandsController.IsAiming)
@@ -157,6 +167,12 @@ namespace AutoIFF.Codebase
             string botId = botPlayer.AccountId;
             lastSeenTime = Time.time;
             labelStyle.fontSize = 22;
+
+            if (Plugin.FriendlyOnly.Value)
+            {
+                ShowFriendlyOnly(bot, distance);
+                return;
+            }
 
             if (identifiedBots.TryGetValue(botId, out float lastTime) &&
                 Time.time - lastTime < Plugin.MemoryDuration.Value)
@@ -221,6 +237,25 @@ namespace AutoIFF.Codebase
 
             displayText = (isHostile ? "Hostile" : "Friendly") + distLabel + roleLabel;
             displayColor = isHostile ? Color.red : Color.green;
+        }
+
+        private void ShowFriendlyOnly(BotOwner bot, float distance)
+        {
+            var enemyInfos = bot.EnemiesController?.EnemyInfos;
+            bool isHostile = enemyInfos != null && enemyInfos.ContainsKey(player);
+
+            if (isHostile)
+            {
+                ResetIdentification();
+                return;
+            }
+
+            string role = GetBotRoleLabel(bot);
+            string distLabel = Plugin.ShowDistance.Value ? $"  ({distance:F0}m)" : "";
+            string roleLabel = Plugin.ShowBotRole.Value && role != null ? $"\n{role}" : "";
+
+            displayText = "Friendly" + distLabel + roleLabel;
+            displayColor = Color.green;
         }
 
         private static string GetBotRoleLabel(BotOwner bot)
@@ -364,6 +399,7 @@ namespace AutoIFF.Codebase
             playerCamera = null;
             currentTarget = null;
             isRaidOver = true;
+            hotkeyActive = false;
             traitorAlertUntil = 0f;
             traitorAlertCount = 0;
             identifiedBots.Clear();

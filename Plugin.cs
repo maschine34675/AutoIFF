@@ -11,16 +11,19 @@ namespace AutoIFF
     {
         Automatic,
         AlwaysOn,
-        AlwaysOff
+        AlwaysOff,
+        Hotkey
     }
 
-    [BepInPlugin("com.maschine.AutoIFF", "maschine-AutoIFF", "1.0.0")]
+    [BepInPlugin("com.maschine.AutoIFF", "maschine-AutoIFF", "1.1.0")]
     [BepInDependency("Light.LightsAutomaticIdentiier", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         public static ManualLogSource Log;
 
         public static ConfigEntry<EActivationMode> ActivationMode;
+        public static ConfigEntry<KeyboardShortcut> ActivationHotkey;
+        public static ConfigEntry<bool> FriendlyOnly;
         public static ConfigEntry<float> BaseIdentificationTime;
         public static ConfigEntry<float> IdentificationRange;
         public static ConfigEntry<float> DistanceMultiplier;
@@ -43,14 +46,20 @@ namespace AutoIFF
                 Log.LogError("[AutoIFF] CONFLICT: Original LightsAutomaticIdentifier detected!");
                 Log.LogError("[AutoIFF] Both mods running simultaneously will cause issues.");
                 Log.LogError("[AutoIFF] Please remove the old DLL from BepInEx/plugins/.");
-                Log.LogError("[AutoIFF] AutoIFF v1.0.0 has NOT been activated.");
+                Log.LogError("[AutoIFF] AutoIFF v1.1.0 has NOT been activated.");
                 Log.LogError("[AutoIFF] ════════════════════════════════════════════");
                 gameObject.AddComponent<ConflictWarningGui>();
                 return;
             }
 
             ActivationMode = Config.Bind("General", "ActivationMode", EActivationMode.Automatic,
-                "Automatic = only active when playing as Scav. AlwaysOn = active in every raid. AlwaysOff = disabled.");
+                "Automatic = only active when playing as Scav. AlwaysOn = active in every raid. AlwaysOff = disabled. Hotkey = toggle via keybind.");
+
+            ActivationHotkey = Config.Bind("General", "ActivationHotkey", KeyboardShortcut.Empty,
+                "Keybind to toggle the mod on/off when ActivationMode is set to Hotkey. Not assigned by default.");
+
+            FriendlyOnly = Config.Bind("General", "FriendlyOnly", false,
+                "Only show friendly targets with instant identification (no delay). Useful for preventing friendly fire in any raid type.");
 
             BaseIdentificationTime = Config.Bind("Identification", "BaseIdentificationTime", 0.7f,
                 new ConfigDescription("Base time in seconds to identify a target.", new AcceptableValueRange<float>(0.05f, 5f)));
@@ -83,7 +92,7 @@ namespace AutoIFF
             new MatchEndedPatchLAI().Enable();
             new TraitorDetectionPatch().Enable();
 
-            Log.LogInfo("AutoIFF v1.0.0 loaded.");
+            Log.LogInfo("AutoIFF v1.1.0 loaded.");
         }
     }
 

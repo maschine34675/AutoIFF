@@ -26,9 +26,10 @@ namespace AutoIFF.Patches
             bool isScav = player.Side == EPlayerSide.Savage;
             bool shouldActivate = Plugin.ActivationMode.Value switch
             {
-                EActivationMode.AlwaysOn => true,
+                EActivationMode.AlwaysOn  => true,
                 EActivationMode.AlwaysOff => false,
-                _ => isScav
+                EActivationMode.Hotkey    => true,
+                _                         => isScav
             };
 
             if (!shouldActivate)

@@ -2,18 +2,19 @@
 
 Automatically identifies the target you are currently aiming at as **Friendly** or **Hostile**, and alerts you when you are marked as a **Scav traitor**.
 
-Based on [Light's Automatic Identifier](https://forge.sp-tarkov.com/mod/2089/lights-automatic-identifier) by **LightoftheWorld** (MIT License).
+Based on [LightsAutomaticIdentifier](https://hub.sp-tarkov.com/files/file/2669-lightsautomaticidentifier/) by **Light** (MIT License).
 
 ---
 
 ## Features
 
 - **Target identification** — aim at any bot to identify it as Friendly or Hostile after a short delay
-- **Bot role display** — shows the target's role: PMC (USEC/BEAR), Scav, Sniper Scav, Raider, Rogue, Boss, Boss Follower, Cultist, and more
+- **Bot role display** — shows the target's role: PMC (USEC/BEAR), Scav, Sniper Scav, Raider, Boss (Killa, Reshala, Gluhar, Sanitar, Tagilla, Knight, Zryachiy, Shturman, Kaban, Kolontay, Partisan), Boss Follower, Cultist, Infected, and more
 - **Skill scaling** — identification time and range are affected by your Attention, Perception, and Search skill levels, including Elite bonuses
 - **Identification memory** — previously identified targets are remembered for 60 seconds (configurable), so you don't have to re-identify them
 - **Scav traitor detection** — detects the exact moment a Scav group marks you as hostile and shows a flash alert in the bottom-right corner. The counter increments each time an additional group finds out, giving you a sense of how far the information has spread across the map
-- **Activation mode** — set to *Automatic* (Scav raids only), *AlwaysOn*, or *AlwaysOff*
+- **Activation mode** — set to *Automatic* (Scav raids only), *AlwaysOn*, *AlwaysOff*, or *Hotkey* (toggle on/off via a configurable keybind)
+- **Friendly-only mode** — instantly highlights friendly targets only, with no identification delay; hostile targets show no label — useful for preventing friendly fire in any raid type
 - **Conflict detection** — if the original LightsAutomaticIdentifier is also installed, AutoIFF disables itself and shows a warning in-game
 
 ---
@@ -32,7 +33,9 @@ All settings are available via BepInEx's configuration system (e.g. with [BepInE
 
 | Section | Setting | Default | Description |
 |---|---|---|---|
-| General | ActivationMode | Automatic | Automatic / AlwaysOn / AlwaysOff |
+| General | ActivationMode | Automatic | Automatic / AlwaysOn / AlwaysOff / Hotkey |
+| General | ActivationHotkey | *(unbound)* | Keybind to toggle the mod when using Hotkey mode |
+| General | FriendlyOnly | false | Only show friendly targets (no delay, hostile targets show nothing) |
 | Identification | BaseIdentificationTime | 0.7s | Base time to identify a target |
 | Identification | IdentificationRange | 100m | Maximum identification range |
 | Identification | DistanceMultiplier | 0.1 | How much distance slows identification |
@@ -47,4 +50,4 @@ All settings are available via BepInEx's configuration system (e.g. with [BepInE
 
 ## Credits
 
-Original concept and implementation by **LightoftheWorld** - [Light's Automatic Identifier](https://forge.sp-tarkov.com/mod/2089/lights-automatic-identifier).
+Original concept and implementation by **Light** — [LightsAutomaticIdentifier](https://hub.sp-tarkov.com/files/file/2669-lightsautomaticidentifier/).
