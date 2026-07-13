@@ -23,6 +23,12 @@ namespace AutoIFF.Patches
 
             Player player = Singleton<GameWorld>.Instance.MainPlayer;
 
+            if (player == null)
+            {
+                Plugin.Log.LogInfo("[AutoIFF] No local player in this GameWorld (headless host?) — skipping activation.");
+                return;
+            }
+
             bool isScav = player.Side == EPlayerSide.Savage;
             bool shouldActivate = Plugin.ActivationMode.Value switch
             {
@@ -69,8 +75,8 @@ namespace AutoIFF.Patches
             if (__instance.LocationId?.ToLower() == "hideout") return;
             if (IdentifierManager.isRaidOver) return;
 
-            string localProfileId = ClientAppUtils.GetClientApp().GetClientBackEndSession().Profile.ProfileId;
-            if (iPlayer.ProfileId != localProfileId) return;
+            string localProfileId = ClientAppUtils.GetClientApp()?.GetClientBackEndSession()?.Profile?.ProfileId;
+            if (localProfileId == null || iPlayer.ProfileId != localProfileId) return;
 
             IdentifierManager.isRaidOver = true;
             Player player = Singleton<GameWorld>.Instance?.MainPlayer;

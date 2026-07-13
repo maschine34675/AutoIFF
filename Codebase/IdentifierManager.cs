@@ -7,15 +7,23 @@ using UnityEngine;
 
 namespace AutoIFF.Codebase
 {
+    public enum ETargetStance
+    {
+        Friendly,
+        Hostile,
+        Wary
+    }
+
     public class IdentifierManager : MonoBehaviour
     {
         private Player player;
         private Camera playerCamera;
 
-        private BotOwner currentTarget;
+        private Player currentTarget;
         private float identificationStartTime;
         private bool isIdentifying;
         private float lastSeenTime;
+        private bool selfTraitor;
 
         private float durationCombined;
         private float distanceMultCombined;
@@ -119,6 +127,8 @@ namespace AutoIFF.Codebase
                 return;
             }
 
+            labelStyle.fontSize = 22;
+
             var ray = new Ray(playerCamera.transform.position, AdjustedAimDirection());
             if (!Physics.Raycast(ray, out RaycastHit hit, 1000f, LayerMaskBots))
             {
@@ -127,9 +137,9 @@ namespace AutoIFF.Codebase
             }
 
             GameObject hitObject = hit.collider.gameObject;
-            BotOwner bot = hitObject.GetComponentInParent<BotOwner>();
+            Player target = hitObject.GetComponentInParent<Player>();
 
-            if (bot == null)
+            if (target == null || ReferenceEquals(target, player))
             {
                 string layerName = LayerMask.LayerToName(hitObject.layer).ToLower();
                 if (layerName == "foliage" && hit.distance < rangeCombined)
@@ -143,47 +153,47 @@ namespace AutoIFF.Codebase
                 return;
             }
 
-            if (bot.IsDead)
+            if (target.HealthController == null || !target.HealthController.IsAlive)
             {
                 HandleNoHit();
                 return;
             }
 
-            float distance = Vector3.Distance(playerCamera.transform.position, bot.Position);
+            float distance = Vector3.Distance(playerCamera.transform.position, target.Position);
             if (distance > rangeCombined)
             {
-                displayText = $"Target too far ({distance:F0}m)";
+                displayText = Plugin.ShowDistance.Value
+                    ? $"Target too far ({distance:F0}m)"
+                    : "Target too far";
                 displayColor = Color.magenta;
                 return;
             }
 
-            LocalPlayer botPlayer = bot.GetComponent<LocalPlayer>();
-            if (botPlayer == null)
+            if (!CanClassify(target))
             {
                 HandleNoHit();
                 return;
             }
 
-            string botId = botPlayer.AccountId;
+            string botId = target.ProfileId;
             lastSeenTime = Time.time;
-            labelStyle.fontSize = 22;
 
             if (Plugin.FriendlyOnly.Value)
             {
-                ShowFriendlyOnly(bot, distance);
+                ShowFriendlyOnly(target, distance);
                 return;
             }
 
             if (identifiedBots.TryGetValue(botId, out float lastTime) &&
                 Time.time - lastTime < Plugin.MemoryDuration.Value)
             {
-                ShowIdentification(bot, distance);
+                ShowIdentification(target, distance);
                 return;
             }
 
-            if (currentTarget != bot)
+            if (currentTarget != target)
             {
-                currentTarget = bot;
+                currentTarget = target;
                 identificationStartTime = Time.time;
                 isIdentifying = true;
                 displayText = "Identifying...";
@@ -197,10 +207,41 @@ namespace AutoIFF.Codebase
                 if (Time.time - identificationStartTime >= required)
                 {
                     identifiedBots[botId] = Time.time;
-                    ShowIdentification(bot, distance);
+                    ShowIdentification(target, distance);
                     isIdentifying = false;
                 }
             }
+        }
+        private static BotOwner GetBotOwner(Player target)
+        {
+            return target.AIData?.BotOwner ?? target.GetComponent<BotOwner>();
+        }
+
+        private bool CanClassify(Player target)
+        {
+            if (GetBotOwner(target) != null) return true;
+            return Plugin.FikaPresent && FikaCompat.IsObserved(target);
+        }
+
+        private bool TryGetStance(Player target, out ETargetStance stance, out string roleLabel)
+        {
+            BotOwner bot = GetBotOwner(target);
+            if (bot != null)
+            {
+                var enemyInfos = bot.EnemiesController?.EnemyInfos;
+                stance = enemyInfos != null && enemyInfos.ContainsKey(player)
+                    ? ETargetStance.Hostile
+                    : ETargetStance.Friendly;
+                roleLabel = GetBotRoleLabel(target);
+                return true;
+            }
+
+            if (Plugin.FikaPresent)
+                return FikaCompat.TryClassify(player, target, selfTraitor, out stance, out roleLabel);
+
+            stance = ETargetStance.Wary;
+            roleLabel = null;
+            return false;
         }
 
         private void HandleNoHit()
@@ -226,31 +267,43 @@ namespace AutoIFF.Codebase
             return durationCombined + (distance * distanceMultCombined) / 6f;
         }
 
-        private void ShowIdentification(BotOwner bot, float distance)
+        private void ShowIdentification(Player target, float distance)
         {
-            var enemyInfos = bot.EnemiesController?.EnemyInfos;
-            bool isHostile = enemyInfos != null && enemyInfos.ContainsKey(player);
+            if (!TryGetStance(target, out ETargetStance stance, out string role))
+            {
+                HandleNoHit();
+                return;
+            }
 
-            string role = GetBotRoleLabel(bot);
             string distLabel = Plugin.ShowDistance.Value ? $"  ({distance:F0}m)" : "";
             string roleLabel = Plugin.ShowBotRole.Value && role != null ? $"\n{role}" : "";
 
-            displayText = (isHostile ? "Hostile" : "Friendly") + distLabel + roleLabel;
-            displayColor = isHostile ? Color.red : Color.green;
+            switch (stance)
+            {
+                case ETargetStance.Hostile:
+                    displayText = "Hostile" + distLabel + roleLabel;
+                    displayColor = Color.red;
+                    break;
+                case ETargetStance.Wary:
+                    displayText = "Wary" + distLabel + roleLabel;
+                    displayColor = new Color(1f, 0.45f, 0f);
+                    break;
+                default:
+                    displayText = "Friendly" + distLabel + roleLabel;
+                    displayColor = Color.green;
+                    break;
+            }
         }
 
-        private void ShowFriendlyOnly(BotOwner bot, float distance)
+        private void ShowFriendlyOnly(Player target, float distance)
         {
-            var enemyInfos = bot.EnemiesController?.EnemyInfos;
-            bool isHostile = enemyInfos != null && enemyInfos.ContainsKey(player);
-
-            if (isHostile)
+            if (!TryGetStance(target, out ETargetStance stance, out string role) ||
+                stance != ETargetStance.Friendly)
             {
                 ResetIdentification();
                 return;
             }
 
-            string role = GetBotRoleLabel(bot);
             string distLabel = Plugin.ShowDistance.Value ? $"  ({distance:F0}m)" : "";
             string roleLabel = Plugin.ShowBotRole.Value && role != null ? $"\n{role}" : "";
 
@@ -258,9 +311,9 @@ namespace AutoIFF.Codebase
             displayColor = Color.green;
         }
 
-        private static string GetBotRoleLabel(BotOwner bot)
+        internal static string GetBotRoleLabel(Player target)
         {
-            var settings = bot.Profile?.Info?.Settings;
+            var settings = target.Profile?.Info?.Settings;
             if (settings == null) return null;
 
             switch (settings.Role)
@@ -346,12 +399,18 @@ namespace AutoIFF.Codebase
             isIdentifying = false;
             displayText = "";
         }
-
         public void SetTraitor()
         {
             traitorAlertCount++;
             traitorAlertUntil = Time.time + Plugin.TraitorAlertDuration.Value;
             Plugin.Log.LogInfo($"[AutoIFF] Scav traitor alert #{traitorAlertCount}.");
+        }
+        public void SetSelfTraitor()
+        {
+            if (selfTraitor) return;
+            selfTraitor = true;
+            SetTraitor();
+            Plugin.Log.LogInfo("[AutoIFF] Local scav damaged an innocent scav — assuming traitor status (Fika client heuristic).");
         }
 
         private void CleanupMemoryIfNeeded()
@@ -400,6 +459,7 @@ namespace AutoIFF.Codebase
             currentTarget = null;
             isRaidOver = true;
             hotkeyActive = false;
+            selfTraitor = false;
             traitorAlertUntil = 0f;
             traitorAlertCount = 0;
             identifiedBots.Clear();

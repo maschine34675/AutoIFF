@@ -1,3 +1,6 @@
+using System;
+using System.Runtime.CompilerServices;
+using AutoIFF.Codebase;
 using AutoIFF.Patches;
 using BepInEx;
 using BepInEx.Bootstrap;
@@ -15,11 +18,16 @@ namespace AutoIFF
         Hotkey
     }
 
-    [BepInPlugin("com.maschine.AutoIFF", "maschine-AutoIFF", "1.1.0")]
+    [BepInPlugin("com.maschine.AutoIFF", "maschine-AutoIFF", PluginVersion)]
     [BepInDependency("Light.LightsAutomaticIdentiier", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency(FikaGuid, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
+        public const string PluginVersion = "1.2.0";
+        public const string FikaGuid = "com.fika.core";
+
         public static ManualLogSource Log;
+        public static bool FikaPresent { get; private set; }
 
         public static ConfigEntry<EActivationMode> ActivationMode;
         public static ConfigEntry<KeyboardShortcut> ActivationHotkey;
@@ -46,7 +54,7 @@ namespace AutoIFF
                 Log.LogError("[AutoIFF] CONFLICT: Original LightsAutomaticIdentifier detected!");
                 Log.LogError("[AutoIFF] Both mods running simultaneously will cause issues.");
                 Log.LogError("[AutoIFF] Please remove the old DLL from BepInEx/plugins/.");
-                Log.LogError("[AutoIFF] AutoIFF v1.1.0 has NOT been activated.");
+                Log.LogError($"[AutoIFF] AutoIFF v{PluginVersion} has NOT been activated.");
                 Log.LogError("[AutoIFF] ════════════════════════════════════════════");
                 gameObject.AddComponent<ConflictWarningGui>();
                 return;
@@ -88,11 +96,50 @@ namespace AutoIFF
             TraitorAlertDuration = Config.Bind("Display", "TraitorAlertDuration", 5f,
                 new ConfigDescription("How long (seconds) the traitor warning stays on screen per alert. Each newly alerted Scav group resets the timer.", new AcceptableValueRange<float>(1f, 15f)));
 
+            FikaPresent = DetectFika();
+
             new MatchStartedPatchLAI().Enable();
             new MatchEndedPatchLAI().Enable();
             new TraitorDetectionPatch().Enable();
 
-            Log.LogInfo("AutoIFF v1.1.0 loaded.");
+            if (FikaPresent)
+            {
+                try
+                {
+                    EnableFikaPatches();
+                }
+                catch (Exception ex)
+                {
+                    FikaPresent = false;
+                    Log.LogWarning($"[AutoIFF] Fika detected, but the Fika patches failed to apply — Fika support disabled. ({ex.Message})");
+                }
+            }
+
+            Log.LogInfo($"AutoIFF v{PluginVersion} loaded.");
+        }
+
+        private static bool DetectFika()
+        {
+            if (!Chainloader.PluginInfos.ContainsKey(FikaGuid))
+                return false;
+
+            try
+            {
+                FikaCompat.Probe();
+                Log.LogInfo("[AutoIFF] Fika detected — coop IFF support enabled.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"[AutoIFF] Fika detected, but its types do not match this AutoIFF build — Fika support disabled. ({ex.GetType().Name})");
+                return false;
+            }
+        }
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void EnableFikaPatches()
+        {
+            new FikaObservedShotPatch().Enable();
+            new FikaObservedDamageInfoPatch().Enable();
         }
     }
 

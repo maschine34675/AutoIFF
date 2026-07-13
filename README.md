@@ -15,6 +15,7 @@ Based on [LightsAutomaticIdentifier](https://hub.sp-tarkov.com/files/file/2669-l
 - **Scav traitor detection** — detects the exact moment a Scav group marks you as hostile and shows a flash alert in the bottom-right corner. The counter increments each time an additional group finds out, giving you a sense of how far the information has spread across the map
 - **Activation mode** — set to *Automatic* (Scav raids only), *AlwaysOn*, *AlwaysOff*, or *Hotkey* (toggle on/off via a configurable keybind)
 - **Friendly-only mode** — instantly highlights friendly targets only, with no identification delay; hostile targets show no label — useful for preventing friendly fire in any raid type
+- **Fika support** — works in coop raids, including headless-hosted ones (see below)
 - **Conflict detection** — if the original LightsAutomaticIdentifier is also installed, AutoIFF disables itself and shows a warning in-game
 
 ---
@@ -24,6 +25,21 @@ Based on [LightsAutomaticIdentifier](https://hub.sp-tarkov.com/files/file/2669-l
 While aiming down sights, a raycast is fired from the player camera. When it hits a bot within range, a short identification timer begins. Once complete, the target is labeled Friendly or Hostile based on whether it has registered the player as an enemy.
 
 Scav traitor detection hooks directly into `BotsGroup.AddEnemy` — the single point through which all enemy-registration paths converge (direct hit response, group propagation, and zone-wide spread). This means the alert fires at the earliest possible moment, with no polling.
+
+---
+
+## Fika Support
+
+AutoIFF works with [Fika](https://project-fika.gitbook.io/) coop raids (requires Fika 2.3.x or newer; AutoIFF only needs to be installed on your own client):
+
+- **When you are the raid host** (or playing regular SPT), bots run locally and identification uses the exact hostility data, just like in singleplayer.
+- **When you join a raid hosted by someone else — including a headless host** — bot AI only exists on the host, so exact hostility data is not available on your machine. AutoIFF then derives friend-or-foe from the bot's role and your faction:
+  - Human coop players are always shown as **Friendly** with their nickname
+  - Bots that are hostile by default (e.g. everything vs. PMCs; cultists, Killa, Shturman, the Goons vs. player Scavs) are shown as **Hostile**
+  - Bots that are *not* hostile at spawn but escalate when approached or provoked (e.g. bosses, Raiders, and Rogues vs. player Scavs) are shown as **Wary** in orange
+  - If you damage an innocent Scav as a player Scav, AutoIFF assumes traitor status: the traitor warning fires and Scavs are labeled Hostile for the rest of the raid
+
+The `Wary` label and the traitor assumption only exist in these client-joined coop raids — everywhere else the mod shows the bot AI's real state.
 
 ---
 

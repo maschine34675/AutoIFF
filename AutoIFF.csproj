@@ -13,6 +13,10 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <LangVersion>9.0</LangVersion>
+    <!-- Fika install used for the compile-time reference (local server+headless install); override with /p:FikaPath=... -->
+    <FikaPath Condition="'$(FikaPath)' == ''">D:\SPTDevFika</FikaPath>
+    <!-- Fika test client the built DLL is deployed to (network drive); override with /p:TestClientPath=... -->
+    <TestClientPath Condition="'$(TestClientPath)' == ''">Z:</TestClientPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -46,6 +50,10 @@
     </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>..\..\EscapeFromTarkov_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Fika.Core">
+      <HintPath>$(FikaPath)\BepInEx\plugins\Fika\Fika.Core.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="BepInEx">
       <HintPath>..\..\BepInEx\core\BepInEx.dll</HintPath>
@@ -108,7 +116,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Codebase\FikaCompat.cs" />
     <Compile Include="Codebase\IdentifierManager.cs" />
+    <Compile Include="Patches\FikaObservedShotPatch.cs" />
     <Compile Include="Patches\MatchStartedPatch.cs" />
     <Compile Include="Patches\TraitorDetectionPatch.cs" />
     <Compile Include="Plugin.cs" />
@@ -116,7 +126,12 @@
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="EnsureFikaReference" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(FikaPath)\BepInEx\plugins\Fika\Fika.Core.dll')"
+           Text="Fika.Core.dll not found under '$(FikaPath)\BepInEx\plugins\Fika\'. Point the FikaPath property at a Fika 2.3.x install, e.g. msbuild /p:FikaPath=D:\SPTDevFika (Fika is only needed at compile time; the mod runs without it)." />
+  </Target>
   <PropertyGroup>
-    <PostBuildEvent>copy "$(TargetPath)" "$(ProjectDir)\..\..\BepInEx\plugins\$(TargetFileName)"</PostBuildEvent>
+    <PostBuildEvent>copy "$(TargetPath)" "$(ProjectDir)\..\..\BepInEx\plugins\$(TargetFileName)"
+if exist "$(TestClientPath)\BepInEx\plugins\" copy "$(TargetPath)" "$(TestClientPath)\BepInEx\plugins\$(TargetFileName)"</PostBuildEvent>
   </PropertyGroup>
 </Project>
