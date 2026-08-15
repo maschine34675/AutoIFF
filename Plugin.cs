@@ -23,7 +23,7 @@ namespace AutoIFF
     [BepInDependency(FikaGuid, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "2.0.0";
         public const string FikaGuid = "com.fika.core";
 
         public static ManualLogSource Log;

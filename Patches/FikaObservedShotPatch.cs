@@ -3,6 +3,7 @@ using System.Reflection;
 using AutoIFF.Codebase;
 using Comfort.Common;
 using EFT;
+using EFT.Ballistics;
 using Fika.Core.Main.Players;
 using HarmonyLib;
 using SPT.Reflection.Patching;
@@ -11,7 +12,7 @@ namespace AutoIFF.Patches
 {
     internal static class FikaSelfTraitorDetector
     {
-        public static void HandlePlayerDamage(ObservedPlayer victim, DamageInfoStruct damageInfo)
+        public static void HandlePlayerDamage(ObservedPlayer victim, DamageInfo damageInfo)
         {
             try
             {
@@ -41,7 +42,7 @@ namespace AutoIFF.Patches
         }
 
         [PatchPostfix]
-        private static void Postfix(ObservedPlayer __instance, DamageInfoStruct damageInfo)
+        private static void Postfix(ObservedPlayer __instance, DamageInfo damageInfo)
         {
             FikaSelfTraitorDetector.HandlePlayerDamage(__instance, damageInfo);
         }
@@ -54,7 +55,7 @@ namespace AutoIFF.Patches
             return AccessTools.Method(typeof(ObservedPlayer), nameof(ObservedPlayer.ApplyDamageInfo));
         }
         [PatchPostfix]
-        private static void Postfix(ObservedPlayer __instance, DamageInfoStruct DamageInfo)
+        private static void Postfix(ObservedPlayer __instance, DamageInfo DamageInfo)
         {
             FikaSelfTraitorDetector.HandlePlayerDamage(__instance, DamageInfo);
         }

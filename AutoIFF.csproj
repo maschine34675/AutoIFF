@@ -13,9 +13,9 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <LangVersion>9.0</LangVersion>
-    <!-- Fika install used for the compile-time reference (local server+headless install); override with /p:FikaPath=... -->
-    <FikaPath Condition="'$(FikaPath)' == ''">D:\SPTDevFika</FikaPath>
-    <!-- Fika test client the built DLL is deployed to (network drive); override with /p:TestClientPath=... -->
+    <FikaPath Condition="'$(FikaPath)' == '' And Exists('D:\SPT41Fika\BepInEx\plugins\Fika\Fika.Core.dll')">D:\SPT41Fika</FikaPath>
+    <FikaPath Condition="'$(FikaPath)' == '' And Exists('Z:\BepInEx\plugins\Fika\Fika.Core.dll')">Z:</FikaPath>
+    <FikaPath Condition="'$(FikaPath)' == '' And Exists('C:\SPT41Fika\BepInEx\plugins\Fika\Fika.Core.dll')">C:\SPT41Fika</FikaPath>
     <TestClientPath Condition="'$(TestClientPath)' == ''">Z:</TestClientPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">

@@ -1,6 +1,22 @@
 # Changelog
 
-## 1.2.0
+## [Unreleased]
+
+## [2.0.0]
+
+### Forge version notes
+- AutoIFF now runs on SPT 4.1. Features are unchanged from 1.2.0. For coop
+  raids, the matching Fika 2.4 line for SPT 4.1 is required.
+
+### Changed
+- Ported to SPT 4.1; the 1.x line stays available for SPT 4.0.
+- Coop support is now built and tested against Fika 2.4.0 (the Fika line for
+  SPT 4.1). Adapted the observed-shot patches to the renamed EFT damage type
+  (`DamageInfoStruct` → `DamageInfo`).
+- Build only: the Fika compile-time reference is now auto-detected across the
+  known dev installs instead of pointing at the frozen 4.0 install.
+
+## [1.2.0]
 
 ### Added
 - **Fika support.** AutoIFF now works in coop raids, including headless-hosted ones. Background: on any Fika client (everyone who *joins* a raid — with a headless host that is every player), bots run on the host and have no local AI data, which previously meant no label ever appeared.
@@ -16,13 +32,13 @@
 - "Target too far" no longer prints the exact distance when `ShowDistance` is disabled.
 - After an "Obscured by foliage" message, subsequent messages ("Target too far", "Losing target...") no longer stay stuck at the smaller font size.
 
-## 1.1.0
+## [1.1.0]
 
 ### Added
 - **Hotkey activation mode.** New `ActivationMode = Hotkey`: the mod attaches in every raid but starts inactive and is toggled on/off with a configurable keybind (`ActivationHotkey`, unassigned by default).
 - **Friendly-only mode.** New `FriendlyOnly` toggle: only friendly targets are shown, instantly and without the identification delay; hostile targets show no label. Useful against friendly fire in any raid type.
 
-## 1.0.0
+## [1.0.0]
 
 Initial release — a complete rewrite of [LightsAutomaticIdentifier](https://hub.sp-tarkov.com/files/file/2669-lightsautomaticidentifier/) by **Light** (MIT License).
 

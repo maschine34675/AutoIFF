@@ -30,7 +30,7 @@ Scav traitor detection hooks directly into `BotsGroup.AddEnemy` — the single p
 
 ## Fika Support
 
-AutoIFF works with [Fika](https://project-fika.gitbook.io/) coop raids (requires Fika 2.3.x or newer; AutoIFF only needs to be installed on your own client):
+AutoIFF works with [Fika](https://project-fika.gitbook.io/) coop raids (requires Fika 2.4.x or newer; AutoIFF only needs to be installed on your own client):
 
 - **When you are the raid host** (or playing regular SPT), bots run locally and identification uses the exact hostility data, just like in singleplayer.
 - **When you join a raid hosted by someone else — including a headless host** — bot AI only exists on the host, so exact hostility data is not available on your machine. AutoIFF then derives friend-or-foe from the bot's role and your faction:
