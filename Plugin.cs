@@ -6,6 +6,7 @@ using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using SPT.Reflection.Patching;
 using UnityEngine;
 
 namespace AutoIFF
@@ -23,7 +24,7 @@ namespace AutoIFF
     [BepInDependency(FikaGuid, BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
-        public const string PluginVersion = "2.0.0";
+        public const string PluginVersion = "2.0.1";
         public const string FikaGuid = "com.fika.core";
 
         public static ManualLogSource Log;
@@ -98,21 +99,17 @@ namespace AutoIFF
 
             FikaPresent = DetectFika();
 
-            new MatchStartedPatchLAI().Enable();
-            new MatchEndedPatchLAI().Enable();
-            new TraitorDetectionPatch().Enable();
+            bool identificationReady = TryEnable(new MatchStartedPatchLAI());
+            TryEnable(new MatchEndedPatchLAI());
+            TryEnable(new TraitorDetectionPatch());
 
-            if (FikaPresent)
+            if (!identificationReady)
+                Log.LogError("[AutoIFF] The raid-start patch could not be applied — no targets will be identified this session.");
+
+            if (FikaPresent && !EnableFikaPatches())
             {
-                try
-                {
-                    EnableFikaPatches();
-                }
-                catch (Exception ex)
-                {
-                    FikaPresent = false;
-                    Log.LogWarning($"[AutoIFF] Fika detected, but the Fika patches failed to apply — Fika support disabled. ({ex.Message})");
-                }
+                FikaPresent = false;
+                Log.LogWarning("[AutoIFF] Fika detected, but the Fika patches failed to apply — Fika support disabled.");
             }
 
             Log.LogInfo($"AutoIFF v{PluginVersion} loaded.");
@@ -135,11 +132,38 @@ namespace AutoIFF
                 return false;
             }
         }
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void EnableFikaPatches()
+        private static bool TryEnable(ModulePatch patch)
         {
-            new FikaObservedShotPatch().Enable();
-            new FikaObservedDamageInfoPatch().Enable();
+            try
+            {
+                patch.Enable();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.LogError($"[AutoIFF] Patch {patch.GetType().Name} could not be applied: {ex.Message}");
+                return false;
+            }
+        }
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static bool EnableFikaPatches()
+        {
+            var shotPatch = new FikaObservedShotPatch();
+            if (!TryEnable(shotPatch))
+                return false;
+
+            if (TryEnable(new FikaObservedDamageInfoPatch()))
+                return true;
+            try
+            {
+                shotPatch.Disable();
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"[AutoIFF] Could not roll back the observed-shot patch: {ex.Message}");
+            }
+
+            return false;
         }
     }
 

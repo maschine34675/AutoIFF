@@ -431,6 +431,8 @@ namespace AutoIFF.Codebase
 
         private void OnGUI()
         {
+            if (isRaidOver || player == null) return;
+
             float cx = Screen.width / 2f;
             float cy = Screen.height / 2f;
 
@@ -439,10 +441,9 @@ namespace AutoIFF.Codebase
                 string label = traitorAlertCount > 1
                     ? $"MARKED AS SCAV TRAITOR ×{traitorAlertCount}"
                     : "MARKED AS SCAV TRAITOR";
-                float w = 240f;
-                float h = 35f;
+                Vector2 size = traitorStyle.CalcSize(new GUIContent(label));
                 float margin = 20f;
-                GUI.Label(new Rect(Screen.width - w - margin, Screen.height - h - margin, w, h), label, traitorStyle);
+                GUI.Label(new Rect(Screen.width - size.x - margin, Screen.height - size.y - margin, size.x, size.y), label, traitorStyle);
             }
 
             if (!string.IsNullOrEmpty(displayText))

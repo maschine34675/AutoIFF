@@ -3,7 +3,6 @@ using Comfort.Common;
 using EFT;
 using HarmonyLib;
 using SPT.Reflection.Patching;
-using SPT.Reflection.Utils;
 using System.Reflection;
 
 namespace AutoIFF.Patches
@@ -74,9 +73,7 @@ namespace AutoIFF.Patches
             if (__instance is HideoutGameWorld) return;
             if (__instance.LocationId?.ToLower() == "hideout") return;
             if (IdentifierManager.isRaidOver) return;
-
-            string localProfileId = ClientAppUtils.GetClientApp()?.GetClientBackEndSession()?.Profile?.ProfileId;
-            if (localProfileId == null || iPlayer.ProfileId != localProfileId) return;
+            if (iPlayer == null || !iPlayer.IsYourPlayer) return;
 
             IdentifierManager.isRaidOver = true;
             Player player = Singleton<GameWorld>.Instance?.MainPlayer;

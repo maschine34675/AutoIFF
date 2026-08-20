@@ -47,7 +47,7 @@ namespace AutoIFF.Codebase
 
             roleLabel = IdentifierManager.GetBotRoleLabel(observed);
             stance = localPlayer.Side == EPlayerSide.Savage
-                ? ClassifyBotForScav(settings.Role, selfTraitor)
+                ? ClassifyBotForScav(settings.Role, selfTraitor || IsHostileToAllScavBots(localPlayer))
                 : ClassifyBotForPmc(settings.Role, localPlayer.Side);
             return true;
         }
@@ -68,9 +68,13 @@ namespace AutoIFF.Codebase
                     return ETargetStance.Hostile;
             }
         }
-        private static ETargetStance ClassifyBotForScav(WildSpawnType role, bool selfTraitor)
+        private static bool IsHostileToAllScavBots(Player localPlayer)
         {
-            if (selfTraitor)
+            return localPlayer.Loyalty?.HostileScavs ?? false;
+        }
+        private static ETargetStance ClassifyBotForScav(WildSpawnType role, bool alwaysHostile)
+        {
+            if (alwaysHostile)
                 return ETargetStance.Hostile;
 
             switch (role)

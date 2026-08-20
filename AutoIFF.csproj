@@ -128,7 +128,7 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureFikaReference" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="!Exists('$(FikaPath)\BepInEx\plugins\Fika\Fika.Core.dll')"
-           Text="Fika.Core.dll not found under '$(FikaPath)\BepInEx\plugins\Fika\'. Point the FikaPath property at a Fika 2.3.x install, e.g. msbuild /p:FikaPath=D:\SPTDevFika (Fika is only needed at compile time; the mod runs without it)." />
+           Text="Fika.Core.dll not found under '$(FikaPath)\BepInEx\plugins\Fika\'. Point the FikaPath property at a Fika 2.4.x install for SPT 4.1, e.g. msbuild /p:FikaPath=D:\SPT41Fika. Do not use D:\SPTDevFika - that is the frozen SPT 4.0 install (Fika 2.3.6) and would build against the old API. Fika is only needed at compile time; the mod runs without it." />
   </Target>
   <PropertyGroup>
     <PostBuildEvent>copy "$(TargetPath)" "$(ProjectDir)\..\..\BepInEx\plugins\$(TargetFileName)"

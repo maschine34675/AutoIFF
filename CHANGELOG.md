@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+## [2.0.1]
+
+### Forge version notes
+- Fixed an identification label or traitor warning that could stay on screen at
+  the end of a Scav raid.
+- Fixed Fika coop raids showing Scav bots as "Friendly" to a joining player whose
+  Fence standing already makes every Scav hostile to them.
+- A patch that fails to apply no longer takes the rest of the mod down with it.
+- Fixed the Scav-traitor warning clipping its repeat counter on the right.
+
+### Fixed
+- The raid-end teardown never ran in Scav raids. It matched the leaving player
+  against the session profile, which is always the PMC profile, while a Scav raid
+  runs on the scav profile — so the check could not match. It now uses
+  `IPlayer.IsYourPlayer`, the same criterion `GameWorld` uses to pick `MainPlayer`,
+  which keeps registration and unregistration symmetric. Because the default
+  `ActivationMode = Automatic` only attaches in Scav raids, this path was dead code
+  in the default configuration. `OnGUI` now honours the same raid-over guard that
+  `Update` already had, so nothing is drawn once the local player is gone.
+- Fika client raids: friend-or-foe classification ignored the player's own Fence
+  standing. Below the hostile-Scav threshold the game treats the player as an enemy
+  of every bot group from spawn, but the mod still showed "Friendly" — inverted
+  precisely for the FriendlyOnly mode, whose whole purpose is a safe-to-hold-fire
+  signal. It now mirrors the game's own rule, which ORs `Loyalty.HostileScavs` into
+  the hostility result in the Savage branch of `BotsGroup.IsPlayerEnemy`.
+- The Scav-traitor warning drew into a fixed 240px rect, which clipped the repeat
+  counter ("×2" and up) on the right. The rect is now sized to the rendered text
+  and grows leftwards from the screen edge.
+
+### Changed
+- Patch activation is failure-tolerant. Each patch is applied individually and a
+  `PatchException` is logged instead of aborting plugin startup, so one broken
+  target costs a single feature rather than the whole mod. If the two Fika patches
+  cannot both be applied, the first is rolled back, leaving nothing hooked behind
+  the then-disabled Fika-support flag.
+- Build only: the missing-Fika build error now points at a Fika 2.4.x install for
+  SPT 4.1 instead of the frozen SPT 4.0 install.
+
 ## [2.0.0]
 
 ### Forge version notes
