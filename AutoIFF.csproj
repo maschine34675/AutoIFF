@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -13,9 +13,14 @@
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <LangVersion>9.0</LangVersion>
+    <!-- Fika install used for the compile-time reference; override with /p:FikaPath=...
+         Kandidaten in Reihenfolge, damit der Build auf Server und PC ohne Parameter laeuft.
+         D:\SPTDevFika ist bewusst NICHT mehr dabei: das ist der eingefrorene 4.0-Stand
+         (Fika 2.3.6 / SPT 4.0.13), ein Build dagegen wuerde die alte API referenzieren. -->
     <FikaPath Condition="'$(FikaPath)' == '' And Exists('D:\SPT41Fika\BepInEx\plugins\Fika\Fika.Core.dll')">D:\SPT41Fika</FikaPath>
     <FikaPath Condition="'$(FikaPath)' == '' And Exists('Z:\BepInEx\plugins\Fika\Fika.Core.dll')">Z:</FikaPath>
     <FikaPath Condition="'$(FikaPath)' == '' And Exists('C:\SPT41Fika\BepInEx\plugins\Fika\Fika.Core.dll')">C:\SPT41Fika</FikaPath>
+    <!-- Fika test client the built DLL is deployed to (network drive); override with /p:TestClientPath=... -->
     <TestClientPath Condition="'$(TestClientPath)' == ''">Z:</TestClientPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -116,8 +121,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Codebase\AutoIffActivation.cs" />
+    <Compile Include="Codebase\ConfigurationManagerAttributes.cs" />
     <Compile Include="Codebase\FikaCompat.cs" />
     <Compile Include="Codebase\IdentifierManager.cs" />
+    <Compile Include="Codebase\LocalPlayerWatcher.cs" />
     <Compile Include="Patches\FikaObservedShotPatch.cs" />
     <Compile Include="Patches\MatchStartedPatch.cs" />
     <Compile Include="Patches\TraitorDetectionPatch.cs" />

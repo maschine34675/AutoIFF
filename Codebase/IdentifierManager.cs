@@ -1,6 +1,8 @@
 using Comfort.Common;
 using EFT;
 using EFT.CameraControl;
+using EFT.HealthSystem;
+using System;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using UnityEngine;
@@ -13,6 +15,16 @@ namespace AutoIFF.Codebase
         Hostile,
         Wary
     }
+    public struct TargetClassification
+    {
+        public ETargetStance Stance;
+        public string RoleLabel;
+        public string Nickname;
+        public bool IsTeammate;
+        public bool HasHealth;
+        public float HealthCurrent;
+        public float HealthMax;
+    }
 
     public class IdentifierManager : MonoBehaviour
     {
@@ -20,6 +32,12 @@ namespace AutoIFF.Codebase
         private Camera playerCamera;
 
         private Player currentTarget;
+        private Player lastLoggedTarget;
+        private Player nameCacheTarget;
+        private string nameCache;
+        private static bool nameLookupWarned;
+        private static bool healthLookupDisabled;
+        private readonly GUIContent labelContent = new GUIContent();
         private float identificationStartTime;
         private bool isIdentifying;
         private float lastSeenTime;
@@ -109,7 +127,14 @@ namespace AutoIFF.Codebase
 
         private void Update()
         {
-            if (isRaidOver || player == null || playerCamera == null) return;
+            if (isRaidOver || player == null) return;
+            if (!IsCurrentLocalPlayer()) { ResetIdentification(); return; }
+            if (playerCamera == null)
+            {
+                playerCamera = Singleton<PlayerCameraController>.Instance?.Camera;
+                if (playerCamera == null) return;
+            }
+
             if (player.HandsController == null) { ResetIdentification(); return; }
 
             if (Plugin.ActivationMode.Value == EActivationMode.Hotkey)
@@ -217,31 +242,154 @@ namespace AutoIFF.Codebase
             return target.AIData?.BotOwner ?? target.GetComponent<BotOwner>();
         }
 
+        private bool IsCurrentLocalPlayer()
+        {
+            var world = Singleton<GameWorld>.Instantiated ? Singleton<GameWorld>.Instance : null;
+            return world != null
+                && ReferenceEquals(world.MainPlayer, player)
+                && player.HealthController != null
+                && player.HealthController.IsAlive;
+        }
+        private void GetBotRelation(BotOwner bot, Player target, out bool ally, out bool hostile)
+        {
+            ally = false;
+            bool groupEnemy = false;
+
+            var group = bot.BotsGroup;
+            if (group != null)
+            {
+                var allies = group.Allies;
+                for (int i = 0; allies != null && i < allies.Count; i++)
+                {
+                    if (allies[i] != null && allies[i].Id == player.Id)
+                    {
+                        ally = true;
+                        break;
+                    }
+                }
+
+                groupEnemy = group.IsEnemy(player);
+            }
+
+            var enemyInfos = bot.EnemiesController?.EnemyInfos;
+            bool botEnemy = enemyInfos != null && enemyInfos.ContainsKey(player);
+            if (!ReferenceEquals(target, lastLoggedTarget))
+            {
+                lastLoggedTarget = target;
+                Plugin.Log.LogDebug($"[AutoIFF] Stance for {target.ProfileId}: ally={ally} groupEnemy={groupEnemy} botEnemy={botEnemy}");
+            }
+
+            hostile = !ally && (groupEnemy || botEnemy);
+        }
+        private static string GetDisplayName(Player target)
+        {
+            var profile = target.Profile;
+            var info = profile?.Info;
+            if (info == null)
+                return null;
+
+            try
+            {
+                if (profile.Side == EPlayerSide.Savage && !string.IsNullOrEmpty(info.MainProfileNickname))
+                    return info.MainProfileNickname;
+
+                return profile.GetCorrectedNickname();
+            }
+            catch (Exception ex)
+            {
+                if (!nameLookupWarned)
+                {
+                    nameLookupWarned = true;
+                    Plugin.Log.LogWarning($"[AutoIFF] Name lookup failed, falling back to the raw nickname: {ex.GetType().Name}");
+                }
+                return info.Nickname;
+            }
+        }
+
         private bool CanClassify(Player target)
         {
             if (GetBotOwner(target) != null) return true;
             return Plugin.FikaPresent && FikaCompat.IsObserved(target);
         }
 
-        private bool TryGetStance(Player target, out ETargetStance stance, out string roleLabel)
+        private bool TryClassify(Player target, out TargetClassification result)
         {
+            result = default;
+            bool known;
+
             BotOwner bot = GetBotOwner(target);
             if (bot != null)
             {
-                var enemyInfos = bot.EnemiesController?.EnemyInfos;
-                stance = enemyInfos != null && enemyInfos.ContainsKey(player)
-                    ? ETargetStance.Hostile
-                    : ETargetStance.Friendly;
-                roleLabel = GetBotRoleLabel(target);
-                return true;
+                GetBotRelation(bot, target, out bool ally, out bool hostile);
+                result.Stance = hostile ? ETargetStance.Hostile : ETargetStance.Friendly;
+                result.RoleLabel = GetBotRoleLabel(target);
+                result.IsTeammate = ally;
+                known = true;
+            }
+            else if (Plugin.FikaPresent)
+            {
+                known = FikaCompat.TryClassify(player, target, selfTraitor, out result);
+            }
+            else
+            {
+                result.Stance = ETargetStance.Wary;
+                return false;
             }
 
-            if (Plugin.FikaPresent)
-                return FikaCompat.TryClassify(player, target, selfTraitor, out stance, out roleLabel);
+            if (known)
+            {
+                result.Nickname = ResolveName(target, result.IsTeammate);
+                if (Plugin.ShowTargetHealth.Value)
+                    result.HasHealth = TryGetHealth(target, out result.HealthCurrent, out result.HealthMax);
+            }
+            return known;
+        }
+        private static bool TryGetHealth(Player target, out float current, out float max)
+        {
+            current = 0f;
+            max = 0f;
 
-            stance = ETargetStance.Wary;
-            roleLabel = null;
-            return false;
+            if (healthLookupDisabled)
+                return false;
+
+            var health = target.HealthController;
+            if (health == null)
+                return false;
+
+            try
+            {
+                ValueStruct total = health.GetBodyPartHealth(EBodyPart.Common, true);
+                current = total.Current;
+                max = total.Maximum;
+                return max > 0f;
+            }
+            catch (Exception ex)
+            {
+                healthLookupDisabled = true;
+                Plugin.Log.LogWarning($"[AutoIFF] Health lookup failed, health stays hidden for this session: {ex.GetType().Name}");
+                return false;
+            }
+        }
+        private string ResolveName(Player target, bool isTeammate)
+        {
+            switch (Plugin.ShowBotName.Value)
+            {
+                case EBotNameDisplay.All:
+                    break;
+                case EBotNameDisplay.Teammates:
+                    if (!isTeammate) return null;
+                    break;
+                default:
+                    return null;
+            }
+
+            if (!ReferenceEquals(target, nameCacheTarget))
+            {
+                nameCacheTarget = target;
+                nameCache = GetDisplayName(target);
+            }
+
+            return nameCache;
         }
 
         private void HandleNoHit()
@@ -269,27 +417,24 @@ namespace AutoIFF.Codebase
 
         private void ShowIdentification(Player target, float distance)
         {
-            if (!TryGetStance(target, out ETargetStance stance, out string role))
+            if (!TryClassify(target, out TargetClassification c))
             {
                 HandleNoHit();
                 return;
             }
 
-            string distLabel = Plugin.ShowDistance.Value ? $"  ({distance:F0}m)" : "";
-            string roleLabel = Plugin.ShowBotRole.Value && role != null ? $"\n{role}" : "";
-
-            switch (stance)
+            switch (c.Stance)
             {
                 case ETargetStance.Hostile:
-                    displayText = "Hostile" + distLabel + roleLabel;
+                    displayText = ComposeLabel("Hostile", distance, c);
                     displayColor = Color.red;
                     break;
                 case ETargetStance.Wary:
-                    displayText = "Wary" + distLabel + roleLabel;
+                    displayText = ComposeLabel("Wary", distance, c);
                     displayColor = new Color(1f, 0.45f, 0f);
                     break;
                 default:
-                    displayText = "Friendly" + distLabel + roleLabel;
+                    displayText = ComposeLabel("Friendly", distance, c);
                     displayColor = Color.green;
                     break;
             }
@@ -297,18 +442,28 @@ namespace AutoIFF.Codebase
 
         private void ShowFriendlyOnly(Player target, float distance)
         {
-            if (!TryGetStance(target, out ETargetStance stance, out string role) ||
-                stance != ETargetStance.Friendly)
+            if (!TryClassify(target, out TargetClassification c) || c.Stance != ETargetStance.Friendly)
             {
                 ResetIdentification();
                 return;
             }
 
-            string distLabel = Plugin.ShowDistance.Value ? $"  ({distance:F0}m)" : "";
-            string roleLabel = Plugin.ShowBotRole.Value && role != null ? $"\n{role}" : "";
-
-            displayText = "Friendly" + distLabel + roleLabel;
+            displayText = ComposeLabel("Friendly", distance, c);
             displayColor = Color.green;
+        }
+
+        private static string ComposeLabel(string stanceText, float distance, in TargetClassification c)
+        {
+            string text = stanceText;
+            if (Plugin.ShowDistance.Value)
+                text += $"  ({distance:F0}m)";
+            if (c.HasHealth)
+                text += $"  HP {c.HealthCurrent:F0}/{c.HealthMax:F0}";
+            if (Plugin.ShowBotRole.Value && c.RoleLabel != null)
+                text += "\n" + c.RoleLabel;
+            if (!string.IsNullOrEmpty(c.Nickname))
+                text += "\n" + c.Nickname;
+            return text;
         }
 
         internal static string GetBotRoleLabel(Player target)
@@ -431,7 +586,7 @@ namespace AutoIFF.Codebase
 
         private void OnGUI()
         {
-            if (isRaidOver || player == null) return;
+            if (isRaidOver || player == null || !IsCurrentLocalPlayer()) return;
 
             float cx = Screen.width / 2f;
             float cy = Screen.height / 2f;
@@ -449,7 +604,11 @@ namespace AutoIFF.Codebase
             if (!string.IsNullOrEmpty(displayText))
             {
                 labelStyle.normal.textColor = displayColor;
-                GUI.Label(new Rect(cx - 150f, cy + 100f, 300f, 60f), displayText, labelStyle);
+                labelContent.text = displayText;
+                Vector2 size = labelStyle.CalcSize(labelContent);
+                float w = Mathf.Max(300f, size.x + 20f);
+                float h = Mathf.Max(60f, size.y);
+                GUI.Label(new Rect(cx - w / 2f, cy + 100f, w, h), labelContent, labelStyle);
             }
         }
 
@@ -458,7 +617,8 @@ namespace AutoIFF.Codebase
             player = null;
             playerCamera = null;
             currentTarget = null;
-            isRaidOver = true;
+            nameCacheTarget = null;
+            nameCache = null;
             hotkeyActive = false;
             selfTraitor = false;
             traitorAlertUntil = 0f;

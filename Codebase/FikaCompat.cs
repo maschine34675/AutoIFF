@@ -25,19 +25,19 @@ namespace AutoIFF.Codebase
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static bool TryClassify(Player localPlayer, Player target, bool selfTraitor, out ETargetStance stance, out string roleLabel)
+        public static bool TryClassify(Player localPlayer, Player target, bool selfTraitor, out TargetClassification result)
         {
-            stance = ETargetStance.Wary;
-            roleLabel = null;
+            result = default;
+            result.Stance = ETargetStance.Wary;
 
             if (!(target is ObservedPlayer observed))
                 return false;
 
             if (!observed.IsObservedAI)
             {
-                stance = ETargetStance.Friendly;
-                string nickname = observed.Profile?.Info?.Nickname;
-                roleLabel = nickname != null ? $"Player ({nickname})" : "Player";
+                result.Stance = ETargetStance.Friendly;
+                result.RoleLabel = "Player";
+                result.IsTeammate = true;
                 return true;
             }
 
@@ -45,8 +45,8 @@ namespace AutoIFF.Codebase
             if (settings == null)
                 return false;
 
-            roleLabel = IdentifierManager.GetBotRoleLabel(observed);
-            stance = localPlayer.Side == EPlayerSide.Savage
+            result.RoleLabel = IdentifierManager.GetBotRoleLabel(observed);
+            result.Stance = localPlayer.Side == EPlayerSide.Savage
                 ? ClassifyBotForScav(settings.Role, selfTraitor || IsHostileToAllScavBots(localPlayer))
                 : ClassifyBotForPmc(settings.Role, localPlayer.Side);
             return true;

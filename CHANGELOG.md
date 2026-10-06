@@ -2,6 +2,100 @@
 
 ## [Unreleased]
 
+## [2.1.0]
+
+### Forge version notes
+- Fixed the Scav traitor warning firing when you had not betrayed anyone — most
+  noticeably counting up every few seconds while cultists were on the map, and
+  whenever a boss, a raider or one of SPT's hostile player-Scav bots turned on you.
+- New option "Show Target Name": shows the target's name on its own line below
+  the label — for squad mates and coop players (default), for every identified
+  target, or never. Coop players' names move there from the type line; set the
+  option to Off to hide them.
+- New option "Show Target Health" (off by default): shows the target's current
+  and maximum health (all body parts combined) next to the Friendly/Hostile
+  label.
+- Target identification now keeps working after a mid-raid respawn, instead of
+  going silent for the rest of the raid — and the previous body no longer keeps
+  labeling every bot "Friendly" once you are back.
+- Friend-or-foe now follows the bot group's own hostility, so bots that another
+  mod (arena, squad, or AI mods such as ArenaMode or SAIN) turned hostile are no
+  longer labeled "Friendly", and squad mates registered as allies stay "Friendly".
+- The settings menu now shows readable names for every option, in a deliberate
+  order instead of raw config keys.
+
+### Added
+- `ShowBotName` (Display): Off / Teammates / All. Teammates covers bots whose
+  group lists the player as an ally (team mods such as PitFireTeam) and human
+  coop players; All names every identified target. Names follow the death
+  screen's rule: a player-scav shows the real player name
+  (`MainProfileNickname`), everything else the game's `GetCorrectedNickname`
+  (Cyrillic scav names transliterated on non-Russian clients). The name is
+  resolved once per target and only when the option needs it. The label box now
+  grows with its text instead of clipping a third line. Coop players previously
+  carried their name inside the role line ("Player (name)"); it is now the
+  separate name line governed by this option.
+- `ShowTargetHealth` (Display, off by default): appends "HP current/max" to the
+  label line, read through the same `EBodyPart.Common` query behind the overall
+  figure on the game's health screen and on Fika's health bar. On a Fika client
+  it therefore shows the health Fika syncs from the host for coop players and
+  bots alike. A failing lookup is logged once and stays hidden for the session.
+
+### Fixed
+- The Scav-traitor hook on `BotsGroup.AddEnemy` raised false alerts for three
+  independent reasons. It counted every call that returned `true`, but the method
+  also returns `true` for a player the group already lists, and the cultist amulet
+  check re-registers every human every 5 s. It took `BotsGroup.Side == Savage` for
+  "a Scav group", which holds for cultists, bosses, raiders and rogues as well. And
+  it counted registrations made when a group or a player enters the raid
+  (`initial`/`AddNewMember`, `addPlayer`, `addPlayerToBoss`, `addCauseGroup`) — how
+  hostile-Scav Fence standing and SPT's hostile "traitor" player-Scav bots take
+  effect. The hook now counts only a first-time registration (a Harmony prefix
+  records whether the player was listed before) by a group of an actual Scav role,
+  for any cause other than those arrival causes. A debug-level line reports each
+  new registration and why it was or was not counted.
+- After a respawn, the identifier component on the previous body kept running.
+  Respawn mods keep that body as a corpse, the component re-resolved the new
+  player camera, and when the player had died while aiming it kept classifying
+  along the live view against the dead player object — which no bot group knows,
+  so every bot read as "Friendly" on top of the real readout. The watcher now
+  destroys the outgoing component when the local player changes, and a component
+  only acts while its player is the current, living local player.
+- Hostility was read from the per-bot `EnemiesController.EnemyInfos`, a derived
+  cache that is filled per member when the group adds an enemy or the member
+  activates, dropped on the enemy's death, and pruned by SAIN whenever it stops
+  tracking an enemy. Classification now asks the group the way the game does: a
+  group whose `BotsGroup.Allies` holds the player (how PitFireTeam registers squad
+  mates) is Friendly, a group whose `BotsGroup.IsEnemy` reports the player is
+  Hostile, and the per-bot entry only counts as an additional positive signal.
+  Ids are compared, mirroring `BotsGroup.IsEnemy`, so both checks share one
+  identity rule.
+- A debug-level log line reports those three signals whenever the aimed target
+  changes, so a wrong label can be traced without per-frame noise.
+- The respawn watcher re-activated the raid-start player once more on its first
+  Update and logged it as a respawn; it is now told which player is already set up.
+- Identification no longer stops permanently after a mid-raid respawn. Respawn
+  mods (arena modes, CorpseRun-style redeploys) replace the local player object,
+  which destroyed the identifier component; on top of that, unregistering the old
+  player was treated as "raid over", which latched a kill switch and deleted the
+  component outright. Three changes: the raid-over check now requires the game
+  itself to be shutting down, a watcher on the plugin object re-activates the
+  identifier on whichever player is currently local, and the component no longer
+  latches that kill switch while being destroyed (Unity destroys at end of frame,
+  so an outgoing instance could otherwise disable its own replacement).
+- The aim raycast survives a camera rebind: the player camera is re-resolved when
+  it disappears, instead of leaving the readout dark for the rest of the raid.
+
+### Changed
+- Every config entry carries a display name and an explicit order for the in-game
+  settings menu (BepInEx ConfigurationManager), via the duck-typed
+  `ConfigurationManagerAttributes` tag. The `.cfg` keys and section names are
+  unchanged, so existing config files stay valid.
+- Reworded four option descriptions that understated their effect: distance
+  scaling is a factor rather than an added number of seconds, FriendlyOnly also
+  bypasses the identification delay, the identification range is a maximum, and
+  the target-type line shows Player for coop players.
+
 ## [2.0.1]
 
 ### Forge version notes

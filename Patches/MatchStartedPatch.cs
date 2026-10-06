@@ -19,6 +19,7 @@ namespace AutoIFF.Patches
         {
             if (__instance is HideoutGameWorld) return;
             if (__instance.LocationId?.ToLower() == "hideout") return;
+            Plugin.StartWatchingLocalPlayer();
 
             Player player = Singleton<GameWorld>.Instance.MainPlayer;
 
@@ -28,35 +29,8 @@ namespace AutoIFF.Patches
                 return;
             }
 
-            bool isScav = player.Side == EPlayerSide.Savage;
-            bool shouldActivate = Plugin.ActivationMode.Value switch
-            {
-                EActivationMode.AlwaysOn  => true,
-                EActivationMode.AlwaysOff => false,
-                EActivationMode.Hotkey    => true,
-                _                         => isScav
-            };
-
-            if (!shouldActivate)
-            {
-                Plugin.Log.LogInfo($"[AutoIFF] Skipping activation (mode={Plugin.ActivationMode.Value}, side={player.Side}).");
-                return;
-            }
-
-            IdentifierManager manager = player.GetOrAddComponent<IdentifierManager>();
-            IdentifierManager.isRaidOver = false;
-            manager.ReloadConfig();
-
-            int attentionLevel = player.Skills.Attention.Level;
-            int perceptionLevel = player.Skills.Perception.Level;
-            int searchLevel = player.Skills.Search.Level;
-            bool isAttentionElite = player.Skills.Attention.IsEliteLevel;
-            bool isPerceptionElite = player.Skills.Perception.IsEliteLevel;
-            bool isSearchElite = player.Skills.Search.IsEliteLevel;
-
-            manager.ApplySkillScaling(attentionLevel, perceptionLevel, searchLevel, isAttentionElite, isPerceptionElite, isSearchElite);
-
-            Plugin.Log.LogInfo($"[AutoIFF] Raid started as {(isScav ? "Scav" : "PMC")}. Attention {attentionLevel}, Perception {perceptionLevel}, Search {searchLevel}.");
+            AutoIffActivation.ActivateFor(player, "raid started");
+            Plugin.NoteLocalPlayerActivated(player);
         }
     }
 
@@ -74,8 +48,15 @@ namespace AutoIFF.Patches
             if (__instance.LocationId?.ToLower() == "hideout") return;
             if (IdentifierManager.isRaidOver) return;
             if (iPlayer == null || !iPlayer.IsYourPlayer) return;
+            if (!RaidIsEnding())
+            {
+                Plugin.Log.LogInfo("[AutoIFF] Local player unregistered while the raid continues (respawn?) — waiting for the replacement.");
+                return;
+            }
 
             IdentifierManager.isRaidOver = true;
+            Plugin.StopWatchingLocalPlayer();
+
             Player player = Singleton<GameWorld>.Instance?.MainPlayer;
             IdentifierManager manager = player?.GetComponent<IdentifierManager>();
 
@@ -85,6 +66,16 @@ namespace AutoIFF.Patches
             }
 
             Plugin.Log.LogInfo("[AutoIFF] Raid ended, IdentifierManager removal requested.");
+        }
+        private static bool RaidIsEnding()
+        {
+            var game = Singleton<AbstractGame>.Instantiated ? Singleton<AbstractGame>.Instance : null;
+            if (game == null)
+                return true;
+
+            return game.Status == GameStatus.Stopping
+                || game.Status == GameStatus.SoftStopping
+                || game.Status == GameStatus.Stopped;
         }
     }
 }
